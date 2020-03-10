@@ -269,7 +269,8 @@ class AnchorCreator(object):
         self._layer_steps = layer_steps
         self._anchor_offset = [0.5] * len(self._layers_shapes)
 
-    def get_layer_anchors(self, layer_shape, anchor_scale, extra_anchor_scale, anchor_ratio, layer_step, offset = 0.5):
+    def get_layer_anchors(self, layer_shape, anchor_scale, extra_anchor_scale, anchor_ratio, layer_step,
+                          offset = 0.5):
         ''' assume layer_shape[0] = 6, layer_shape[1] = 5
         x_on_layer = [[0, 1, 2, 3, 4],
                        [0, 1, 2, 3, 4],
@@ -284,6 +285,9 @@ class AnchorCreator(object):
                        [4, 4, 4, 4, 4],
                        [5, 5, 5, 5, 5]]
         '''
+        print('layer_shape ', layer_shape, 'anchor_scale ', anchor_scale,
+              'extra_anchor_scale ', extra_anchor_scale, 'anchor_ratio ', anchor_ratio,
+              'layer_step ', layer_step, 'offset ', offset)
         with tf.name_scope('get_layer_anchors'):
             x_on_layer, y_on_layer = tf.meshgrid(tf.range(layer_shape[1]), tf.range(layer_shape[0]))
 
@@ -312,8 +316,8 @@ class AnchorCreator(object):
             # y_on_image, x_on_image: layers_shapes[0] * layers_shapes[1]
             # h_on_image, w_on_image: num_anchors_along_depth
             return tf.expand_dims(y_on_image, axis=-1), tf.expand_dims(x_on_image, axis=-1), \
-                    tf.constant(list_h_on_image, dtype=tf.float32), \
-                    tf.constant(list_w_on_image, dtype=tf.float32), num_anchors_along_depth, num_anchors_along_spatial
+                tf.constant(list_h_on_image, dtype=tf.float32), tf.constant(list_w_on_image, dtype=tf.float32), \
+                num_anchors_along_depth, num_anchors_along_spatial
 
     def get_all_anchors(self):
         all_anchors = []
@@ -326,6 +330,8 @@ class AnchorCreator(object):
                                                         self._anchor_ratios[layer_index],
                                                         self._layer_steps[layer_index],
                                                         self._anchor_offset[layer_index])
+            print(anchors_this_layer)
+            exit()
             all_anchors.append(anchors_this_layer[:-2])
             all_num_anchors_depth.append(anchors_this_layer[-2])
             all_num_anchors_spatial.append(anchors_this_layer[-1])

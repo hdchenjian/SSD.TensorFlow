@@ -75,6 +75,7 @@ def forward_module(m, inputs, training=False):
 class VGG16Backbone(object):
     def __init__(self, data_format='channels_first'):
         super(VGG16Backbone, self).__init__()
+        self.print_tensor_shape = False
         self._data_format = data_format
         self._bn_axis = -1 if data_format == 'channels_last' else 1
         #initializer = tf.glorot_uniform_initializer  glorot_normal_initializer
@@ -120,16 +121,37 @@ class VGG16Backbone(object):
         feature_layers = []
         # forward vgg layers
         for conv in self._conv1_block:
+            if self.print_tensor_shape: print(conv.name, inputs.shape.as_list(), '->', end='')
             inputs = forward_module(conv, inputs, training=training)
+            if self.print_tensor_shape: print(inputs.shape.as_list())
+
+        if self.print_tensor_shape: print(self._pool1.name, inputs.shape.as_list(), '->', end='')
         inputs = self._pool1.apply(inputs)
+        if self.print_tensor_shape: print(inputs.shape.as_list())
+        
         for conv in self._conv2_block:
+            if self.print_tensor_shape: print(conv.name, inputs.shape.as_list(), '->', end='')
             inputs = forward_module(conv, inputs, training=training)
+            if self.print_tensor_shape: print(inputs.shape.as_list())
+
+        if self.print_tensor_shape: print(self._pool2.name, inputs.shape.as_list(), '->', end='')
         inputs = self._pool2.apply(inputs)
+        if self.print_tensor_shape: print(inputs.shape.as_list())
+
         for conv in self._conv3_block:
+            if self.print_tensor_shape: print(conv.name, inputs.shape.as_list(), '->', end='')
             inputs = forward_module(conv, inputs, training=training)
+            if self.print_tensor_shape: print(inputs.shape.as_list())
+
+        if self.print_tensor_shape: print(self._pool3.name, inputs.shape.as_list(), '->', end='')
         inputs = self._pool3.apply(inputs)
+        if self.print_tensor_shape: print(inputs.shape.as_list())
+        
         for conv in self._conv4_block:
+            if self.print_tensor_shape: print(conv.name, inputs.shape.as_list(), '->', end='')
             inputs = forward_module(conv, inputs, training=training)
+            if self.print_tensor_shape: print(inputs.shape.as_list())
+            
         # conv4_3
         with tf.variable_scope('conv4_3_scale') as scope:
             weight_scale = tf.Variable([20.] * 512, trainable=training, name='weights')
@@ -138,32 +160,55 @@ class VGG16Backbone(object):
             else:
                 weight_scale = tf.reshape(weight_scale, [1, -1, 1, 1], name='reshape')
 
-            feature_layers.append(tf.multiply(weight_scale, self.l2_normalize(inputs, name='norm'), name='rescale')
-                                )
+            feature_layers.append(tf.multiply(weight_scale, self.l2_normalize(inputs, name='norm'), name='rescale'))
+
+        if self.print_tensor_shape: print(self._pool4.name, inputs.shape.as_list(), '->', end='')
         inputs = self._pool4.apply(inputs)
+        if self.print_tensor_shape: print(inputs.shape.as_list())
+
         for conv in self._conv5_block:
+            if self.print_tensor_shape: print(conv.name, inputs.shape.as_list(), '->', end='')
             inputs = forward_module(conv, inputs, training=training)
+            if self.print_tensor_shape: print(inputs.shape.as_list())
+
+        if self.print_tensor_shape: print(self._pool5.name, inputs.shape.as_list(), '->', end='')
         inputs = self._pool5.apply(inputs)
+        if self.print_tensor_shape: print(inputs.shape.as_list())
+        
         # forward fc layers
+        if self.print_tensor_shape: print(self._conv6.name, inputs.shape.as_list(), '->', end='')
         inputs = self._conv6.apply(inputs)
+        if self.print_tensor_shape: print(inputs.shape.as_list())
+
+        if self.print_tensor_shape: print(self._conv7.name, inputs.shape.as_list(), '->', end='')
         inputs = self._conv7.apply(inputs)
+        if self.print_tensor_shape: print(inputs.shape.as_list())
+        
         # fc7
         feature_layers.append(inputs)
         # forward ssd layers
         for layer in self._conv8_block:
+            if self.print_tensor_shape: print(layer.name, inputs.shape.as_list(), '->', end='')
             inputs = forward_module(layer, inputs, training=training)
+            if self.print_tensor_shape: print(layer.name, inputs.shape.as_list())
         # conv8
         feature_layers.append(inputs)
         for layer in self._conv9_block:
+            if self.print_tensor_shape: print(layer.name, inputs.shape.as_list(), '->', end='')
             inputs = forward_module(layer, inputs, training=training)
+            if self.print_tensor_shape: print(layer.name, inputs.shape.as_list())
         # conv9
         feature_layers.append(inputs)
         for layer in self._conv10_block:
+            if self.print_tensor_shape: print(layer.name, inputs.shape.as_list(), '->', end='')
             inputs = forward_module(layer, inputs, training=training)
+            if self.print_tensor_shape: print(layer.name, inputs.shape.as_list())
         # conv10
         feature_layers.append(inputs)
         for layer in self._conv11_block:
+            if self.print_tensor_shape: print(layer.name, inputs.shape.as_list(), '->', end='')
             inputs = forward_module(layer, inputs, training=training)
+            if self.print_tensor_shape: print(layer.name, inputs.shape.as_list())
         # conv11
         feature_layers.append(inputs)
 
@@ -209,29 +254,26 @@ class VGG16Backbone(object):
                         data_format=self._data_format, activation=None, use_bias=False,
                         kernel_initializer=self._conv_bn_initializer(),
                         bias_initializer=None,
-                        name='{}_1'.format(name), _scope='{}_1'.format(name), _reuse=None)
+                        name='{}_1'.format(name), _scope='{}_1'.format(name), _reuse=None))
+            conv_bn_blocks.append(
+                tf.layers.BatchNormalization(
+                    axis=self._bn_axis, momentum=BN_MOMENTUM, epsilon=BN_EPSILON, fused=USE_FUSED_BN,
+                    name='{}_bn1'.format(name), _scope='{}_bn1'.format(name), _reuse=None)
                 )
             conv_bn_blocks.append(
-                    tf.layers.BatchNormalization(axis=self._bn_axis, momentum=BN_MOMENTUM, epsilon=BN_EPSILON, fused=USE_FUSED_BN,
-                        name='{}_bn1'.format(name), _scope='{}_bn1'.format(name), _reuse=None)
-                )
-            conv_bn_blocks.append(
-                    ReLuLayer('{}_relu1'.format(name), _scope='{}_relu1'.format(name), _reuse=None)
-                )
+                    ReLuLayer('{}_relu1'.format(name), _scope='{}_relu1'.format(name), _reuse=None))
             conv_bn_blocks.append(
                     tf.layers.Conv2D(filters=filters * 2, kernel_size=3, strides=strides, padding='same',
                         data_format=self._data_format, activation=None, use_bias=False,
                         kernel_initializer=self._conv_bn_initializer(),
                         bias_initializer=None,
-                        name='{}_2'.format(name), _scope='{}_2'.format(name), _reuse=None)
-                )
+                        name='{}_2'.format(name), _scope='{}_2'.format(name), _reuse=None))
             conv_bn_blocks.append(
-                    tf.layers.BatchNormalization(axis=self._bn_axis, momentum=BN_MOMENTUM, epsilon=BN_EPSILON, fused=USE_FUSED_BN,
-                        name='{}_bn2'.format(name), _scope='{}_bn2'.format(name), _reuse=None)
-                )
+                    tf.layers.BatchNormalization(
+                        axis=self._bn_axis, momentum=BN_MOMENTUM, epsilon=BN_EPSILON, fused=USE_FUSED_BN,
+                        name='{}_bn2'.format(name), _scope='{}_bn2'.format(name), _reuse=None))
             conv_bn_blocks.append(
-                    ReLuLayer('{}_relu2'.format(name), _scope='{}_relu2'.format(name), _reuse=None)
-                )
+                    ReLuLayer('{}_relu2'.format(name), _scope='{}_relu2'.format(name), _reuse=None))
             return conv_bn_blocks
 
 def multibox_head(feature_layers, num_classes, num_anchors_depth_per_layer, data_format='channels_first'):
@@ -244,11 +286,12 @@ def multibox_head(feature_layers, num_classes, num_anchors_depth_per_layer, data
                         padding='same', data_format=data_format, activation=None,
                         kernel_initializer=tf.glorot_uniform_initializer(),
                         bias_initializer=tf.zeros_initializer()))
-            cls_preds.append(tf.layers.conv2d(feat, num_anchors_depth_per_layer[ind] * num_classes, (3, 3), use_bias=True,
-                        name='cls_{}'.format(ind), strides=(1, 1),
-                        padding='same', data_format=data_format, activation=None,
-                        kernel_initializer=tf.glorot_uniform_initializer(),
-                        bias_initializer=tf.zeros_initializer()))
+            cls_preds.append(
+                tf.layers.conv2d(feat, num_anchors_depth_per_layer[ind] * num_classes, (3, 3), use_bias=True,
+                                 name='cls_{}'.format(ind), strides=(1, 1),
+                                 padding='same', data_format=data_format, activation=None,
+                                 kernel_initializer=tf.glorot_uniform_initializer(),
+                                 bias_initializer=tf.zeros_initializer()))
 
         return loc_preds, cls_preds
 

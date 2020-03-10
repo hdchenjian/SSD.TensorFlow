@@ -158,6 +158,7 @@ def main(_):
         features = ssd_preprocessing.preprocess_for_eval(
             image_input, out_shape, data_format=FLAGS.data_format, output_rgb=False)
         features = tf.expand_dims(features, axis=0)
+        print('input image', features)
 
         anchor_creator = anchor_manipulator.AnchorCreator(
             out_shape,
@@ -229,5 +230,5 @@ def main(_):
             imsave('./demo/test_out.jpg', img_to_draw)
 
 if __name__ == '__main__':
-  tf.logging.set_verbosity(tf.logging.INFO)
+  tf.logging.set_verbosity(tf.logging.ERROR)
   tf.app.run()
