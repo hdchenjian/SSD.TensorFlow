@@ -20,7 +20,7 @@ import os
 import sys
 
 import tensorflow as tf
-from scipy.misc import imread, imsave, imshow, imresize
+from imageio import imread, imsave
 import numpy as np
 
 from net import ssd_net
@@ -55,7 +55,7 @@ tf.app.flags.DEFINE_integer(
     'keep_topk', 200, 'Number of total object to keep for each image before nms.')
 # checkpoint related configuration
 tf.app.flags.DEFINE_string(
-    'checkpoint_path', './logs',
+    'checkpoint_path', '/home/ai/.bin/ssd/SSD.TensorFlow/model/SSD300-VGG16',
     'The path to a checkpoint from which to fine-tune.')
 tf.app.flags.DEFINE_string(
     'model_scope', 'ssd300',
@@ -75,7 +75,7 @@ def get_checkpoint():
 def select_bboxes(scores_pred, bboxes_pred, num_classes, select_threshold):
     selected_bboxes = {}
     selected_scores = {}
-    with tf.name_scope('select_bboxes', [scores_pred, bboxes_pred]):
+    with tf.name_scope('select_bboxes', values = [scores_pred, bboxes_pred]):
         for class_ind in range(1, num_classes):
             class_scores = scores_pred[:, class_ind]
 
@@ -107,14 +107,15 @@ def filter_bboxes(scores_pred, ymin, xmin, ymax, xmax, min_size, name):
 
         filter_mask = tf.cast(filter_mask, tf.float32)
         return tf.multiply(ymin, filter_mask), tf.multiply(xmin, filter_mask), \
-                tf.multiply(ymax, filter_mask), tf.multiply(xmax, filter_mask), tf.multiply(scores_pred, filter_mask)
+            tf.multiply(ymax, filter_mask), tf.multiply(xmax, filter_mask), tf.multiply(scores_pred, filter_mask)
 
 def sort_bboxes(scores_pred, ymin, xmin, ymax, xmax, keep_topk, name):
     with tf.name_scope(name, 'sort_bboxes', [scores_pred, ymin, xmin, ymax, xmax]):
         cur_bboxes = tf.shape(scores_pred)[0]
         scores, idxes = tf.nn.top_k(scores_pred, k=tf.minimum(keep_topk, cur_bboxes), sorted=True)
 
-        ymin, xmin, ymax, xmax = tf.gather(ymin, idxes), tf.gather(xmin, idxes), tf.gather(ymax, idxes), tf.gather(xmax, idxes)
+        ymin, xmin, ymax, xmax = tf.gather(ymin, idxes), tf.gather(xmin, idxes), \
+                                 tf.gather(ymax, idxes), tf.gather(xmax, idxes)
 
         paddings_scores = tf.expand_dims(tf.stack([0, tf.maximum(keep_topk-cur_bboxes, 0)], axis=0), axis=0)
 
@@ -127,20 +128,23 @@ def nms_bboxes(scores_pred, bboxes_pred, nms_topk, nms_threshold, name):
         idxes = tf.image.non_max_suppression(bboxes_pred, scores_pred, nms_topk, nms_threshold)
         return tf.gather(scores_pred, idxes), tf.gather(bboxes_pred, idxes)
 
-def parse_by_class(cls_pred, bboxes_pred, num_classes, select_threshold, min_size, keep_topk, nms_topk, nms_threshold):
-    with tf.name_scope('select_bboxes', [cls_pred, bboxes_pred]):
+def parse_by_class(cls_pred, bboxes_pred, num_classes, select_threshold, min_size,
+                   keep_topk, nms_topk, nms_threshold):
+    with tf.name_scope('select_bboxes', values = [cls_pred, bboxes_pred]):
         scores_pred = tf.nn.softmax(cls_pred)
         selected_bboxes, selected_scores = select_bboxes(scores_pred, bboxes_pred, num_classes, select_threshold)
         for class_ind in range(1, num_classes):
             ymin, xmin, ymax, xmax = tf.unstack(selected_bboxes[class_ind], 4, axis=-1)
             #ymin, xmin, ymax, xmax = tf.squeeze(ymin), tf.squeeze(xmin), tf.squeeze(ymax), tf.squeeze(xmax)
             ymin, xmin, ymax, xmax = clip_bboxes(ymin, xmin, ymax, xmax, 'clip_bboxes_{}'.format(class_ind))
-            ymin, xmin, ymax, xmax, selected_scores[class_ind] = filter_bboxes(selected_scores[class_ind],
-                                                ymin, xmin, ymax, xmax, min_size, 'filter_bboxes_{}'.format(class_ind))
-            ymin, xmin, ymax, xmax, selected_scores[class_ind] = sort_bboxes(selected_scores[class_ind],
-                                                ymin, xmin, ymax, xmax, keep_topk, 'sort_bboxes_{}'.format(class_ind))
+            ymin, xmin, ymax, xmax, selected_scores[class_ind] = filter_bboxes(
+                selected_scores[class_ind], ymin, xmin, ymax, xmax, min_size, 'filter_bboxes_{}'.format(class_ind))
+            ymin, xmin, ymax, xmax, selected_scores[class_ind] = sort_bboxes(
+                selected_scores[class_ind], ymin, xmin, ymax, xmax, keep_topk, 'sort_bboxes_{}'.format(class_ind))
             selected_bboxes[class_ind] = tf.stack([ymin, xmin, ymax, xmax], axis=-1)
-            selected_scores[class_ind], selected_bboxes[class_ind] = nms_bboxes(selected_scores[class_ind], selected_bboxes[class_ind], nms_topk, nms_threshold, 'nms_bboxes_{}'.format(class_ind))
+            selected_scores[class_ind], selected_bboxes[class_ind] = nms_bboxes(
+                selected_scores[class_ind], selected_bboxes[class_ind], nms_topk,
+                nms_threshold, 'nms_bboxes_{}'.format(class_ind))
 
         return selected_bboxes, selected_scores
 
@@ -151,16 +155,20 @@ def main(_):
         image_input = tf.placeholder(tf.uint8, shape=(None, None, 3))
         shape_input = tf.placeholder(tf.int32, shape=(2,))
 
-        features = ssd_preprocessing.preprocess_for_eval(image_input, out_shape, data_format=FLAGS.data_format, output_rgb=False)
+        features = ssd_preprocessing.preprocess_for_eval(
+            image_input, out_shape, data_format=FLAGS.data_format, output_rgb=False)
         features = tf.expand_dims(features, axis=0)
 
-        anchor_creator = anchor_manipulator.AnchorCreator(out_shape,
-                                                    layers_shapes = [(38, 38), (19, 19), (10, 10), (5, 5), (3, 3), (1, 1)],
-                                                    anchor_scales = [(0.1,), (0.2,), (0.375,), (0.55,), (0.725,), (0.9,)],
-                                                    extra_anchor_scales = [(0.1414,), (0.2739,), (0.4541,), (0.6315,), (0.8078,), (0.9836,)],
-                                                    anchor_ratios = [(1., 2., .5), (1., 2., 3., .5, 0.3333), (1., 2., 3., .5, 0.3333), (1., 2., 3., .5, 0.3333), (1., 2., .5), (1., 2., .5)],
-                                                    #anchor_ratios = [(2., .5), (2., 3., .5, 0.3333), (2., 3., .5, 0.3333), (2., 3., .5, 0.3333), (2., .5), (2., .5)],
-                                                    layer_steps = [8, 16, 32, 64, 100, 300])
+        anchor_creator = anchor_manipulator.AnchorCreator(
+            out_shape,
+            layers_shapes = [(38, 38), (19, 19), (10, 10), (5, 5), (3, 3), (1, 1)],
+            anchor_scales = [(0.1,), (0.2,), (0.375,), (0.55,), (0.725,), (0.9,)],
+            extra_anchor_scales = [(0.1414,), (0.2739,), (0.4541,), (0.6315,), (0.8078,), (0.9836,)],
+            anchor_ratios = [(1., 2., .5), (1., 2., 3., .5, 0.3333), (1., 2., 3., .5, 0.3333),
+                             (1., 2., 3., .5, 0.3333), (1., 2., .5), (1., 2., .5)],
+            #anchor_ratios = [(2., .5), (2., 3., .5, 0.3333), (2., 3., .5, 0.3333),
+            #(2., 3., .5, 0.3333), (2., .5), (2., .5)],
+            layer_steps = [8, 16, 32, 64, 100, 300])
         all_anchors, all_num_anchors_depth, all_num_anchors_spatial = anchor_creator.get_all_anchors()
 
         anchor_encoder_decoder = anchor_manipulator.AnchorEncoder(allowed_borders = [1.0] * 6,
@@ -168,12 +176,15 @@ def main(_):
                                                             ignore_threshold = None,
                                                             prior_scaling=[0.1, 0.1, 0.2, 0.2])
 
-        decode_fn = lambda pred : anchor_encoder_decoder.ext_decode_all_anchors(pred, all_anchors, all_num_anchors_depth, all_num_anchors_spatial)
+        def decode_fn(pred):
+            return anchor_encoder_decoder.ext_decode_all_anchors(
+                pred, all_anchors, all_num_anchors_depth, all_num_anchors_spatial)
 
         with tf.variable_scope(FLAGS.model_scope, default_name=None, values=[features], reuse=tf.AUTO_REUSE):
             backbone = ssd_net.VGG16Backbone(FLAGS.data_format)
             feature_layers = backbone.forward(features, training=False)
-            location_pred, cls_pred = ssd_net.multibox_head(feature_layers, FLAGS.num_classes, all_num_anchors_depth, data_format=FLAGS.data_format)
+            location_pred, cls_pred = ssd_net.multibox_head(
+                feature_layers, FLAGS.num_classes, all_num_anchors_depth, data_format=FLAGS.data_format)
             if FLAGS.data_format == 'channels_first':
                 cls_pred = [tf.transpose(pred, [0, 2, 3, 1]) for pred in cls_pred]
                 location_pred = [tf.transpose(pred, [0, 2, 3, 1]) for pred in location_pred]
@@ -210,7 +221,9 @@ def main(_):
             saver.restore(sess, get_checkpoint())
 
             np_image = imread('./demo/test.jpg')
-            labels_, scores_, bboxes_ = sess.run([all_labels, all_scores, all_bboxes], feed_dict = {image_input : np_image, shape_input : np_image.shape[:-1]})
+            labels_, scores_, bboxes_ = sess.run(
+                [all_labels, all_scores, all_bboxes],
+                feed_dict = {image_input : np_image, shape_input : np_image.shape[:-1]})
 
             img_to_draw = draw_toolbox.bboxes_draw_on_img(np_image, labels_, scores_, bboxes_, thickness=2)
             imsave('./demo/test_out.jpg', img_to_draw)

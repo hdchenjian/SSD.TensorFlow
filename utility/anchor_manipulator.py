@@ -224,7 +224,7 @@ class AnchorEncoder(object):
 
     def ext_decode_all_anchors(self, pred_location, all_anchors, all_num_anchors_depth, all_num_anchors_spatial):
         assert (len(all_num_anchors_depth)==len(all_num_anchors_spatial)) and (len(all_num_anchors_depth)==len(all_anchors)), 'inconsist num layers for anchors.'
-        with tf.name_scope('ext_decode_all_anchors', [pred_location]):
+        with tf.name_scope('ext_decode_all_anchors', values = [pred_location]):
             num_anchors_per_layer = []
             for ind in range(len(all_anchors)):
                 num_anchors_per_layer.append(all_num_anchors_depth[ind] * all_num_anchors_spatial[ind])
