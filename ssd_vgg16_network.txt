@@ -11,7 +11,7 @@ pool3      75 x 75 x 256     2 x 2                   38 x 38 x 256
 conv41     38 x 38 x 256     512 3 x 3 stride 1      38 x 38 x 512
 conv42     38 x 38 x 512     512 3 x 3 stride 1      38 x 38 x 512
 conv43     38 x 38 x 512     512 3 x 3 stride 1      38 x 38 x 512
-l2_norm    38 x 38 x 512         # feature_layers
+l2_norm    38 x 38 x 512                                                    # feature_layers
 pool4      38 x 38 x 512     2 x 2                   19 x 19 x 512
 conv51     19 x 19 x 512     512 3 x 3 stride 1      19 x 19 x 512
 conv52     19 x 19 x 512     512 3 x 3 stride 1      19 x 19 x 512

@@ -131,7 +131,6 @@ class AnchorEncoder(object):
         # h_on_image, w_on_image: num_anchors
         assert (len(all_num_anchors_depth)==len(all_num_anchors_spatial)) and (len(all_num_anchors_depth)==len(all_anchors)), 'inconsist num layers for anchors.'
         with tf.name_scope('encode_all_anchors'):
-            num_layers = len(all_num_anchors_depth)
             list_anchors_ymin = []
             list_anchors_xmin = []
             list_anchors_ymax = []
@@ -229,7 +228,6 @@ class AnchorEncoder(object):
             for ind in range(len(all_anchors)):
                 num_anchors_per_layer.append(all_num_anchors_depth[ind] * all_num_anchors_spatial[ind])
 
-            num_layers = len(all_num_anchors_depth)
             list_anchors_ymin = []
             list_anchors_xmin = []
             list_anchors_ymax = []
@@ -285,9 +283,10 @@ class AnchorCreator(object):
                        [4, 4, 4, 4, 4],
                        [5, 5, 5, 5, 5]]
         '''
-        print('layer_shape ', layer_shape, 'anchor_scale ', anchor_scale,
-              'extra_anchor_scale ', extra_anchor_scale, 'anchor_ratio ', anchor_ratio,
-              'layer_step ', layer_step, 'offset ', offset)
+        '''
+        print('layer_shape ', layer_shape, '\nanchor_scale ', anchor_scale,
+              '\nextra_anchor_scale ', extra_anchor_scale, '\nanchor_ratio ', anchor_ratio,
+              '\nlayer_step ', layer_step, '\noffset ', offset)'''
         with tf.name_scope('get_layer_anchors'):
             x_on_layer, y_on_layer = tf.meshgrid(tf.range(layer_shape[1]), tf.range(layer_shape[0]))
 
@@ -300,18 +299,15 @@ class AnchorCreator(object):
             list_h_on_image = []
             list_w_on_image = []
 
-            global_index = 0
             # for square anchors
             for _, scale in enumerate(extra_anchor_scale):
                 list_h_on_image.append(scale)
                 list_w_on_image.append(scale)
-                global_index += 1
             # for other aspect ratio anchors
             for scale_index, scale in enumerate(anchor_scale):
                 for ratio_index, ratio in enumerate(anchor_ratio):
                     list_h_on_image.append(scale / math.sqrt(ratio))
                     list_w_on_image.append(scale * math.sqrt(ratio))
-                    global_index += 1
             # shape info:
             # y_on_image, x_on_image: layers_shapes[0] * layers_shapes[1]
             # h_on_image, w_on_image: num_anchors_along_depth
@@ -330,8 +326,6 @@ class AnchorCreator(object):
                                                         self._anchor_ratios[layer_index],
                                                         self._layer_steps[layer_index],
                                                         self._anchor_offset[layer_index])
-            print(anchors_this_layer)
-            exit()
             all_anchors.append(anchors_this_layer[:-2])
             all_num_anchors_depth.append(anchors_this_layer[-2])
             all_num_anchors_spatial.append(anchors_this_layer[-1])

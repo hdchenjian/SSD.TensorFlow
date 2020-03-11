@@ -158,7 +158,6 @@ def main(_):
         features = ssd_preprocessing.preprocess_for_eval(
             image_input, out_shape, data_format=FLAGS.data_format, output_rgb=False)
         features = tf.expand_dims(features, axis=0)
-        print('input image', features)
 
         anchor_creator = anchor_manipulator.AnchorCreator(
             out_shape,
@@ -225,6 +224,9 @@ def main(_):
             labels_, scores_, bboxes_ = sess.run(
                 [all_labels, all_scores, all_bboxes],
                 feed_dict = {image_input : np_image, shape_input : np_image.shape[:-1]})
+            #print('labels_', labels_, type(labels_), labels_.shape)
+            #print('scores_', scores_, type(scores_), scores_.shape)
+            #print('bboxes_', bboxes_, type(bboxes_), bboxes_.shape, bboxes_.shape[0])
 
             img_to_draw = draw_toolbox.bboxes_draw_on_img(np_image, labels_, scores_, bboxes_, thickness=2)
             imsave('./demo/test_out.jpg', img_to_draw)
