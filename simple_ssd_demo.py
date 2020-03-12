@@ -55,7 +55,7 @@ tf.app.flags.DEFINE_integer(
     'keep_topk', 200, 'Number of total object to keep for each image before nms.')
 # checkpoint related configuration
 tf.app.flags.DEFINE_string(
-    'checkpoint_path', '/home/ai/.bin/ssd/SSD.TensorFlow/model/SSD300-VGG16',
+    'checkpoint_path', 'model/SSD300-VGG16',
     'The path to a checkpoint from which to fine-tune.')
 tf.app.flags.DEFINE_string(
     'model_scope', 'ssd300',
@@ -153,7 +153,6 @@ def main(_):
         out_shape = [FLAGS.train_image_size] * 2
 
         image_input = tf.placeholder(tf.uint8, shape=(None, None, 3))
-        shape_input = tf.placeholder(tf.int32, shape=(2,))
 
         features = ssd_preprocessing.preprocess_for_eval(
             image_input, out_shape, data_format=FLAGS.data_format, output_rgb=False)
@@ -220,16 +219,16 @@ def main(_):
 
             saver.restore(sess, get_checkpoint())
 
-            np_image = imread('./demo/test.jpg')
+            np_image = imread('demo/test.jpg')
             labels_, scores_, bboxes_ = sess.run(
                 [all_labels, all_scores, all_bboxes],
-                feed_dict = {image_input : np_image, shape_input : np_image.shape[:-1]})
+                feed_dict = {image_input : np_image})
             #print('labels_', labels_, type(labels_), labels_.shape)
             #print('scores_', scores_, type(scores_), scores_.shape)
             #print('bboxes_', bboxes_, type(bboxes_), bboxes_.shape, bboxes_.shape[0])
 
             img_to_draw = draw_toolbox.bboxes_draw_on_img(np_image, labels_, scores_, bboxes_, thickness=2)
-            imsave('./demo/test_out.jpg', img_to_draw)
+            imsave('demo/test_out.jpg', img_to_draw)
 
 if __name__ == '__main__':
   tf.logging.set_verbosity(tf.logging.ERROR)

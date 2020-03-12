@@ -1,20 +1,38 @@
-from utility import anchor_manipulator
+import tensorflow as tf
+from imageio import imread, imsave
+from utility import draw_toolbox
 
-out_shape = [300] * 2
+def load_graph(model_file):
+    graph = tf.Graph()
+    graph_def = tf.GraphDef()
 
-anchor_creator = anchor_manipulator.AnchorCreator(
-    out_shape,
-    layers_shapes = [(38, 38), (19, 19), (10, 10), (5, 5), (3, 3), (1, 1)],
-    anchor_scales = [(0.1,), (0.2,), (0.375,), (0.55,), (0.725,), (0.9,)],
-    extra_anchor_scales = [(0.1414,), (0.2739,), (0.4541,), (0.6315,), (0.8078,), (0.9836,)],
-    anchor_ratios = [(1., 2., .5), (1., 2., 3., .5, 0.3333), (1., 2., 3., .5, 0.3333),
-                     (1., 2., 3., .5, 0.3333), (1., 2., .5), (1., 2., .5)],
-    #anchor_ratios = [(2., .5), (2., 3., .5, 0.3333), (2., 3., .5, 0.3333),
-    #(2., 3., .5, 0.3333), (2., .5), (2., .5)],
-    layer_steps = [8, 16, 32, 64, 100, 300])
-all_anchors, all_num_anchors_depth, all_num_anchors_spatial = anchor_creator.get_all_anchors()
+    with open(model_file, "rb") as f:
+      graph_def.ParseFromString(f.read())
+    with graph.as_default():
+      tf.import_graph_def(graph_def)
 
-anchor_encoder_decoder = anchor_manipulator.AnchorEncoder(allowed_borders = [1.0] * 6,
-                                                          positive_threshold = None,
-                                                          ignore_threshold = None,
-                                                          prior_scaling=[0.1, 0.1, 0.2, 0.2])
+    return graph
+
+model_file = 'model/ssd300_vgg16.pb'
+graph = load_graph(model_file)
+#for tensor in tf.get_default_graph().as_graph_def().node: print(tensor.name)
+
+with tf.Session(graph = graph) as sess:
+    init = tf.global_variables_initializer()
+    sess.run(init)
+
+    #for op in tf.get_default_graph().get_operations(): print(str(op.name))
+
+    image_input = graph.get_tensor_by_name('import/define_input/image_input:0')
+    all_labels = graph.get_tensor_by_name("import/all_labels/concat:0" )
+    all_scores = graph.get_tensor_by_name("import/all_scores/concat:0" )
+    all_bboxes = graph.get_tensor_by_name("import/all_bboxes/concat:0" )
+    
+    np_image = imread('demo/test.jpg')
+    labels_, scores_, bboxes_ = sess.run([all_labels, all_scores, all_bboxes], feed_dict = {image_input : np_image})
+    #print('labels_', labels_, type(labels_), labels_.shape)
+    #print('scores_', scores_, type(scores_), scores_.shape)
+    #print('bboxes_', bboxes_, type(bboxes_), bboxes_.shape, bboxes_.shape[0])
+
+    img_to_draw = draw_toolbox.bboxes_draw_on_img(np_image, labels_, scores_, bboxes_, thickness=2)
+    imsave('demo/test_out.jpg', img_to_draw)
