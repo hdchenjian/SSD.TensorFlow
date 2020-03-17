@@ -1,0 +1,6 @@
+model_name: ssd.cambricon
+session_run{
+  input_nodes(1): "import/define_input/image_input:0",1,300,300,3
+  output_nodes(12): "import/ssd300/cls_pred/concat:0"
+                    "import/ssd300/location_pred/concat:0"
+}
