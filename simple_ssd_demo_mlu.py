@@ -152,7 +152,8 @@ def main(_):
     with tf.Graph().as_default():
         out_shape = [FLAGS.train_image_size] * 2
 
-        image_input = tf.placeholder(tf.uint8, shape=(None, None, 3))
+        with tf.name_scope('define_input'):
+            image_input = tf.placeholder(tf.uint8, shape=(None, None, 3), name='image_input')
 
         features = ssd_preprocessing.preprocess_for_eval(
             image_input, out_shape, data_format=FLAGS.data_format, output_rgb=False)
@@ -191,14 +192,13 @@ def main(_):
             cls_pred = [tf.reshape(pred, [-1, FLAGS.num_classes]) for pred in cls_pred]
             location_pred = [tf.reshape(pred, [-1, 4]) for pred in location_pred]
 
-            cls_pred = tf.concat(cls_pred, axis=0)
-            location_pred = tf.concat(location_pred, axis=0)
-            print('cls_pred', cls_pred)
-            print('location_pred', location_pred)
+            with tf.variable_scope('cls_pred'):
+                cls_pred = tf.concat(cls_pred, axis=0)
+            with tf.variable_scope('location_pred'):
+                location_pred = tf.concat(location_pred, axis=0)
 
         with tf.device('/cpu:0'):
             bboxes_pred = decode_fn(location_pred)
-            print('bboxes_pred', bboxes_pred)
             bboxes_pred = tf.concat(bboxes_pred, axis=0)
             selected_bboxes, selected_scores = parse_by_class(cls_pred, bboxes_pred,
                                                             FLAGS.num_classes, FLAGS.select_threshold, FLAGS.min_size,
@@ -216,6 +216,15 @@ def main(_):
             all_bboxes = tf.concat(bboxes_list, axis=0)
 
         saver = tf.train.Saver()
+        '''
+        config = tf.ConfigProto(allow_soft_placement=True, inter_op_parallelism_threads=1, intra_op_parallelism_threads=1)
+        config.mlu_options.data_parallelism = 1
+        config.mlu_options.model_parallelism = 1
+        config.mlu_options.core_num = 1
+        config.mlu_options.core_version = 'MLU270'
+        config.mlu_options.precision = 'float'
+        with tf.Session(config = config) as sess:
+        '''
         with tf.Session() as sess:
             init = tf.global_variables_initializer()
             sess.run(init)
@@ -232,6 +241,7 @@ def main(_):
 
             img_to_draw = draw_toolbox.bboxes_draw_on_img(np_image, labels_, scores_, bboxes_, thickness=2)
             imsave('demo/test_out.jpg', img_to_draw)
+            saver.save(sess, 'model/ssd300_vgg16/ssd300_vgg16', global_step=0)
 
 if __name__ == '__main__':
   tf.logging.set_verbosity(tf.logging.ERROR)

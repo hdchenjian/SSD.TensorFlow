@@ -11,7 +11,7 @@ def freeze_graph(input_checkpoint,output_graph):
         output_graph_def = tf.graph_util.convert_variables_to_constants(
             sess=sess,
             input_graph_def=input_graph_def,
-            output_node_names=['all_labels/concat', 'all_scores/concat', 'all_bboxes/concat'])
+            output_node_names=['ssd300/cls_pred/concat', 'ssd300/location_pred/concat'])
  
         with tf.gfile.GFile(output_graph, "wb") as f:
             f.write(output_graph_def.SerializeToString())
