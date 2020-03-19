@@ -1,7 +1,8 @@
 import tensorflow as tf
-from imageio import imread, imsave
 from utility import draw_toolbox
 from utility import anchor_manipulator
+import cv2
+import numpy as np
 
 def load_graph(model_file):
     graph = tf.Graph()
@@ -14,7 +15,7 @@ def load_graph(model_file):
 
     return graph
 
-model_file = 'model/ssd300_vgg16_mlu.pb'
+model_file = 'model/ssd300_vgg16_short_mlu.pb'
 graph = load_graph(model_file)
 #for tensor in tf.get_default_graph().as_graph_def().node: print(tensor.name)
 
@@ -30,23 +31,28 @@ with tf.Session(config = config, graph = graph) as sess:
     sess.run(init)
 
     #for op in tf.get_default_graph().get_operations(): print(str(op.name))
+    for tensor in tf.get_default_graph().as_graph_def().node: print(tensor.name)
 
     image_input = graph.get_tensor_by_name('import/define_input/image_input:0')
     cls_pred = graph.get_tensor_by_name("import/ssd300/cls_pred/concat:0" )
     location_pred = graph.get_tensor_by_name("import/ssd300/location_pred/concat:0" )
-    
-    np_image = imread('demo/test.jpg')
-    cls_pred_, location_pred_ = sess.run([cls_pred, location_pred], feed_dict = {image_input : np_image})
+
+    _R_MEAN = 123.68
+    _G_MEAN = 116.78
+    _B_MEAN = 103.94
+    means = [_B_MEAN, _G_MEAN, _R_MEAN, ]
+    np_image = cv2.imread('demo/test.jpg')
+    np_image = np.float32(np_image)
+    image = cv2.resize(np_image, (300, 300))
+    #cv2.imwrite('demo/test_out2.jpg', image)
+    image = (image - means)# / 255.0
+    #print('image', type(image), image.shape, image)
+    image = np.expand_dims(image, axis=0)
+    #print('image', type(image), image.shape, image)
+
+    cls_pred_, location_pred_ = sess.run([cls_pred, location_pred], feed_dict = {image_input : image})
     print('cls_pred', type(cls_pred_), cls_pred_.shape)
     print('location_pred', type(location_pred_), location_pred_.shape)
-
-    #print('labels_', labels_, type(labels_), labels_.shape)
-    #print('scores_', scores_, type(scores_), scores_.shape)
-    #print('bboxes_', bboxes_, type(bboxes_), bboxes_.shape, bboxes_.shape[0])
-
-    #img_to_draw = draw_toolbox.bboxes_draw_on_img(np_image, labels_, scores_, bboxes_, thickness=2)
-    #imsave('demo/test_out.jpg', img_to_draw)
-
 
 
 g2 = tf.Graph()
@@ -190,5 +196,5 @@ with tf.Session(graph=g2) as sess2:
     #print('bboxes_', bboxes_, type(bboxes_), bboxes_.shape, bboxes_.shape[0])
 
     img_to_draw = draw_toolbox.bboxes_draw_on_img(np_image, labels_, scores_, bboxes_, thickness=2)
-    imsave('demo/test_out.jpg', img_to_draw)
+    cv2.imwrite('demo/test_out.jpg', img_to_draw)
 

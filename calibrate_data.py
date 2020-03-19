@@ -133,8 +133,19 @@ class default_preprocess_cali(object):
 
   def next(self):
     self.iter += 1
+    '''
     np_image = imread(self.file_list[self.iter])
     return {self.input_tensor_names[0] : np_image}
+    '''
+    np_image = cv2.imread(self.file_list[self.iter])
+    _R_MEAN = 123.68
+    _G_MEAN = 116.78
+    _B_MEAN = 103.94
+    means = [_B_MEAN, _G_MEAN, _R_MEAN, ]
+    image = cv2.resize(np_image, (300, 300))
+    image = (image - means)# / 255.0
+    image = np.expand_dims(image, axis=0)
+    return {self.input_tensor_names[0] : image}
 
     
     batch_data = read_image_batch(self.file_list, self.batch_size, self.iter)

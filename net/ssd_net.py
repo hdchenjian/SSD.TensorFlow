@@ -53,20 +53,6 @@ _USE_FUSED_BN = True
 # vgg_16/conv3/conv3_3/biases
 # vgg_16/conv1/conv1_2/weights
 
-class ReLuLayer(tf.layers.Layer):
-    def __init__(self, name, **kwargs):
-        super(ReLuLayer, self).__init__(name=name, trainable=trainable, **kwargs)
-        self._name = name
-    def build(self, input_shape):
-        self._relu = lambda x : tf.nn.relu(x, name=self._name)
-        self.built = True
-
-    def call(self, inputs):
-        return self._relu(inputs)
-
-    def compute_output_shape(self, input_shape):
-        return tf.TensorShape(input_shape)
-
 def forward_module(m, inputs, training=False):
     if isinstance(m, tf.layers.BatchNormalization) or isinstance(m, tf.layers.Dropout):
         return m.apply(inputs, training=training)
@@ -245,36 +231,6 @@ class VGG16Backbone(object):
                         name='{}_2'.format(name), _scope='{}_2'.format(name), _reuse=None)
                 )
             return conv_blocks
-
-    def ssd_conv_bn_block(self, filters, strides, name, reuse=None):
-        with tf.variable_scope(name):
-            conv_bn_blocks = []
-            conv_bn_blocks.append(
-                    tf.layers.Conv2D(filters=filters, kernel_size=1, strides=1, padding='same',
-                        data_format=self._data_format, activation=None, use_bias=False,
-                        kernel_initializer=self._conv_bn_initializer(),
-                        bias_initializer=None,
-                        name='{}_1'.format(name), _scope='{}_1'.format(name), _reuse=None))
-            conv_bn_blocks.append(
-                tf.layers.BatchNormalization(
-                    axis=self._bn_axis, momentum=BN_MOMENTUM, epsilon=BN_EPSILON, fused=USE_FUSED_BN,
-                    name='{}_bn1'.format(name), _scope='{}_bn1'.format(name), _reuse=None)
-                )
-            conv_bn_blocks.append(
-                    ReLuLayer('{}_relu1'.format(name), _scope='{}_relu1'.format(name), _reuse=None))
-            conv_bn_blocks.append(
-                    tf.layers.Conv2D(filters=filters * 2, kernel_size=3, strides=strides, padding='same',
-                        data_format=self._data_format, activation=None, use_bias=False,
-                        kernel_initializer=self._conv_bn_initializer(),
-                        bias_initializer=None,
-                        name='{}_2'.format(name), _scope='{}_2'.format(name), _reuse=None))
-            conv_bn_blocks.append(
-                    tf.layers.BatchNormalization(
-                        axis=self._bn_axis, momentum=BN_MOMENTUM, epsilon=BN_EPSILON, fused=USE_FUSED_BN,
-                        name='{}_bn2'.format(name), _scope='{}_bn2'.format(name), _reuse=None))
-            conv_bn_blocks.append(
-                    ReLuLayer('{}_relu2'.format(name), _scope='{}_relu2'.format(name), _reuse=None))
-            return conv_bn_blocks
 
 def multibox_head(feature_layers, num_classes, num_anchors_depth_per_layer, data_format='channels_first'):
     with tf.variable_scope('multibox_head'):

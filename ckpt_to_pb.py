@@ -19,4 +19,4 @@ def freeze_graph(input_checkpoint,output_graph):
  
 
 #freeze_graph('model/SSD300-VGG16/model.ckpt-120000', 'model/ssd_vgg16')
-freeze_graph('model/ssd300_vgg16/ssd300_vgg16-0', 'model/ssd300_vgg16.pb')
+freeze_graph('model/ssd300_vgg16/ssd300_vgg16_short-0', 'model/ssd300_vgg16_short.pb')
